@@ -1,0 +1,166 @@
+---
+title: "Intro to Bayesian inference"
+author: "Lab 3"
+date: "25/01/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(bayestestR)
+library(dplyr)
+library(ggplot2)
+```
+
+Hand in via GitHub by 9am Monday. For Q1-4, do calculations in R. 
+
+## Question 1
+
+Consider the happiness example from the lecture, with 118 out of 129 women indicating they are happy. We are interested in estimating $\theta$, which is the (true) proportion of women who are happy. Calculate the MLE estimate $\hat{\theta}$ and 95% confidence interval. 
+```{r}
+n = 129
+y = 118
+```
+
+```{r}
+likelihood <- function(p){
+  return(choose(n,y)*(p**y)*(1-p)**(n-y))
+}
+
+theta_optim <- optimize(likelihood, c(0,1), maximum = TRUE)
+theta_hat <- theta_optim$maximum
+theta_hat
+```
+
+For the CI we need sd of bin dist which is sqrt(pq/n)
+
+```{r}
+se_theta_hat = sqrt(theta_hat*(1-theta_hat)/n)
+CI_95 <- c(0,0)
+CI_95[1] <- theta_hat - 1.96 * se_theta_hat
+CI_95[2] <- theta_hat + 1.96 * se_theta_hat
+CI_95
+```
+
+## Question 2
+
+Assume a Beta(1,1) prior on $\theta$. Calculate the posterior mean for $\hat{\theta}$ and 95% credible interval. 
+
+```{r}
+p_y_th <- likelihood
+
+#Posterior is Beta(y+1, n-y+1)
+alpha_2 = y+1
+beta_2 = n-y+1
+e = alpha_2/(alpha_2 + beta_2)
+e
+```
+```{r}
+poster_2 <- distribution_beta(n, alpha_2, beta_2)
+ci_hdi_2 <- ci(poster_2, method = "HDI")
+ci_hdi_2
+```
+
+## Question 3
+
+Now assume a Beta(10,10) prior on $\theta$. What is the interpretation of this prior? Are we assuming we know more, less or the same amount of information as the prior used in Question 2?
+
+We assume that we know more about theta in Q3, since in Q2 we deal with Beta(1,1) = Uniform(0,1). This distribution has the highest entropy, in other words,in Uniform case we assume that we think that theta = 0.15 and theta = 0.9876 are equally likely to appear, in other words, we don't know even the basic behavior of theta. Conversely, in Q3 we assume the we know that theta is likely to be about 0.5.
+
+But as we can see, its better not to make assumptions at all about theta (B(1,1)), than to make wrong as in Q3 (B(10,10)).
+
+```{r}
+alpha_3 = 10 + y
+beta_3 = 10 + n - y
+e_3 = alpha_3/(alpha_3+beta_3)
+e_3
+```
+```{r}
+poster_3 <- distribution_beta(n, alpha_3, beta_3)
+ci_hdi_3 <- ci(poster_3, method = "HDI")
+ci_hdi_3
+```
+
+## Question 4
+
+Create a graph in ggplot which illustrates
+
+- The likelihood (easiest option is probably to use `geom_histogram` to plot the histogram of appropriate random variables)
+- The priors and posteriors in question 2 and 3 (use `stat_function` to plot these distributions)
+
+Comment on what you observe. 
+
+Likelihood function is very close to posterior distributions from both Q2 and Q3. Prior distributions reflect my comment from previous question about amount of knowledge that we assume we know.
+```{r}
+th <- seq(0,1,length=n)
+likelihood_th <- likelihood(th)
+```
+
+```{r}
+ggplot() + 
+  geom_line(aes(th,likelihood(th)), col = 'aquamarine', size = 1)+
+  theme_dark()+
+  ggtitle('Likelihood function of different theta')
+```
+
+
+
+```{r}
+library(ggplot2)
+x <- seq(0,1,length=n)
+prior_1 <- dbeta(x, 1, 1)
+posterior_1 <- dbeta(x, y+1, n-y+1)
+prior_2 <- dbeta(x, 10, 10)
+posterior_2 <- dbeta(x, y+10, n-y+10)
+
+df <- data.frame(prior_1,prior_2,posterior_1,posterior_2)
+```
+
+
+```{r}
+ggplot(data = df) + 
+  geom_line(aes(x,prior_1), col = 'pink', size = 1)+
+  geom_line(aes(x,posterior_1),col = 'aquamarine', size = 1)+
+  theme_dark()+
+  ggtitle('Prior (pink) and Posterior (green) of theta from Q2')
+```
+
+```{r}
+ggplot() + 
+  geom_line(aes(x,prior_2), col = 'pink', size = 1)+
+  geom_line(aes(x,posterior_2),col = 'aquamarine', size = 1)+
+  theme_dark()+
+  ggtitle('Prior (pink) and Posterior (green) of theta from Q3')
+```
+
+## Question 5
+
+(No R code required) A study is performed to estimate the effect of a simple training program on basketball free-throw shooting. 
+
+A random sample of 100 college students is recruited into the study. 
+
+Each student first shoots 100 free-throws to establish a baseline success probability. 
+
+Each student then takes 50 practice shots each day for a month. 
+
+At the end of that time, each student takes 100 shots for a final measurement.
+
+Let $\theta$ be the average improvement in success probability. 
+
+$\theta$ is measured as the final proportion of shots made minus the initial proportion of shots made. 
+
+Given two prior distributions for $\theta$ (explaining each in a sentence):
+
+- A non-informative prior, and
+
+As 'best' non-informative prior is Uniformly distributed on (-1,1). By setting this prior we assume that the 'improvement' could be any from -100 (from 100 to 0) to 100 (from 0 to 100) in absolute number of throws.
+
+- A subjective/informative prior based on your best knowledge
+
+For a informative prior assumption one can assume that the average improvement in success should be > 0 since the students train hard every day up to final trial. So we may consider as a prior as with >0 mean, I can guess 0.25 with sd about 0.08, so not to make negative increase too likely. (more details bellow).
+
+#-------------------------------------------------------------------------------
+One throw is Bernoulli trial and we can consider 100 trials as Binomial distribution with Bin(100, p_success0) in the begging and Bin(100, p_succsess1) in the end. We know that Binomial distribution approximates Normal distributions and difference of two Normal distributions is still Normal. We also cannot assume that these two Normal's are independent, but I think for a prior assumptions we can use it.
