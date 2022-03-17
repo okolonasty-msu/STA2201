@@ -135,16 +135,7 @@ mod3_thetas = summary(mod3)$summary[1:100, c('mean')]
 
 ```{r}
 region <- seq(1,100,1)
-region
-```
-
-
-```{r}
 tdf <- data.frame(region)
-```
-
-
-```{r}
 tdf$mod1_theta <- mod1_thetas
 tdf$mod2_theta <- mod2_thetas
 tdf$mod3_theta <- mod3_thetas
@@ -152,15 +143,21 @@ tdf$mod3_theta <- mod3_thetas
 
 
 ```{r}
+colors <- c("Mod 1" = "salmon", "Mod 2" = "violetred2", "Mod 3" = "dodgerblue2")
+
 ggplot(data = tdf)+
-  geom_hline(yintercept = tdf$mod1_theta, color = 'salmon') +
-  geom_point(aes(x = region, y = mod2_theta, color = 'blue'))+
-  geom_point(aes(x = region, y = mod3_theta, color = 'aquamarine'))+
+  geom_hline(yintercept = tdf$mod1_theta, color = 'salmon', size = 1.25) +
+  geom_point(aes(x = region, y = mod2_theta, color = 'Mod 2'), size = 1.5)+
+  geom_point(aes(x = region, y = mod3_theta, color = 'Mod 3'), size = 1.5)+
   geom_segment(aes(x = region, 
                    y = mod2_theta,
                    xend =region, 
                    yend = mod3_theta))+
-  ggtitle('Comparisson of estimated theta across 3 models for each region')
+  ggtitle('Comparisson of estimated theta across 3 models for each region')+
+  labs(x = "region #",
+         y = "estimated theta") +
+  
+  scale_color_manual(values = colors)
   
 ```
 
@@ -182,6 +179,7 @@ Rerun model 3 (the hierarchical model), but also including an overdispersion par
 #saveRDS(mod4, "lab8_mod4_new.rds")
 mod4 <- readRDS("lab8_mod4_new.rds")
 ```
+
 ```{r}
 loglik3 <- rstan::extract(mod3)[["log_lik"]]
 loglik4 <- rstan::extract(mod4)[["log_lik"]]
@@ -192,7 +190,7 @@ loglik4 <- rstan::extract(mod4)[["log_lik"]]
 loo3 = loo(loglik3, save_psis = T )
 loo4 = loo(loglik4, save_psis = T )
 ```
-
+We can see that model with overdispersion is better than mod3 without it.
 ```{r}
 loo_compare(loo3, loo4)
 ```
